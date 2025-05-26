@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>テーマ背景付きタイマー</title>
+  <style>
+    :root {
+      --theme-color: #ffd700;
+    }
+
+    body {
+      background-color: #111;
+      background-image: url('images/gold.jpg');
+      background-size: cover;
+      background-position: center;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding-top: 40px;
+      transition: background-image 0.5s ease;
+    }
+
+    .timer-container {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 20px auto;
+    }
+
+    .circle {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: conic-gradient(var(--theme-color) 0deg, #444 0deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .time {
+      position: absolute;
+      font-size: 2em;
+      font-weight: bold;
+    }
+
+    input, button {
+      margin: 10px;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+    }
+
+    input[type="number"] {
+      width: 60px;
+      text-align: center;
+    }
+
+    .control-btn {
+      background: var(--theme-color);
+      color: #111;
+      cursor: pointer;
+    }
+
+    .bg-buttons button, .theme-buttons button {
+      background: #444;
+      color: #fff;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+
+    .theme-buttons {
+      margin-top: 10px;
+    }
+
+    .flash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .flash-overlay.active {
+      animation: flashEffect 1s ease-in-out 3;
+    }
+
+    @keyframes flashEffect {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Murder Mystery Timer</h1>
+
+  <div>
+    <label>分: <input type="number" id="minutes" min="0" value="0"></label>
+    <label>秒: <input type="number" id="seconds" min="0" max="59" value="0"></label>
+    <input type="file" id="alarmSound" accept="audio/*">
+  </div>
+
+  <div class="theme-buttons">
+    <button onclick="changeTheme('red')">赤テーマ</button>
+    <button onclick="changeTheme('blue')">青テーマ</button>
+    <button onclick="changeTheme('gold')">黄テーマ</button>
+  </div>
+
+  <div class="timer-container">
+    <div class="circle" id="circle">
+      <div class="time" id="time">01:00</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="control-btn" onclick="startTimer()">▶スタート</button>
+    <button class="control-btn" onclick="togglePause()" id="pauseBtn">⏸一時停止</button>
+    <button class="control-btn" onclick="resetTimer()">🔄リセット</button>
+  </div>
+
+  <div class="flash-overlay" id="flashOverlay"></div>
+  <audio id="alarmAudio"></audio>
+
+  <script>
+    let duration = 60;
+    let remaining = 60;
+    let timerInterval;
+    let paused = false;
+    let customAudioURL = null;
+    let alarmPlaying = false;
+
+    const timeDisplay = document.getElementById("time");
+    const circle = document.getElementById("circle");
+    const audio = document.getElementById("alarmAudio");
+    const flashOverlay = document.getElementById("flashOverlay");
+
+    function formatTime(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    document.getElementById('alarmSound').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (file) {
+        customAudioURL = URL.createObjectURL(file);
+        audio.src = customAudioURL;
+      }
+    });
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      stopAlarm();
+
+      const min = parseInt(document.getElementById("minutes").value, 10) || 0;
+      const sec = parseInt(document.getElementById("seconds").value, 10) || 0;
+      duration = remaining = min * 60 + sec;
+
+      updateDisplay();
+      flashOverlay.classList.remove("active");
+
+      timerInterval = setInterval(tick, 1000);
+      paused = false;
+      document.getElementById("pauseBtn").textContent = "⏸一時停止";
+    }
+
+    function tick() {
+      if (paused) return;
+
+      remaining--;
+      if (remaining < 0) {
+        clearInterval(timerInterval);
+        timeDisplay.textContent = "00:00";
+        circle.style.background = `conic-gradient(var(--theme-color) 360deg, #444 0deg)`;
+
+        if (customAudioURL) {
+          audio.play();
+          alarmPlaying = true;
+        }
+
+        flashOverlay.classList.remove("active");
+        void flashOverlay.offsetWidth;
+        flashOverlay.classList.add("active");
+
+      } else {
+        updateDisplay();
+      }
+    }
+
+    function updateDisplay() {
+      const angle = 360 * ((duration - remaining) / duration);
+      timeDisplay.textContent = formatTime(remaining);
+      circle.style.background = `conic-gradient(var(--theme-color) ${angle}deg, #444 ${angle}deg)`;
+    }
+
+    function togglePause() {
+      if (remaining <= 0) return;
+      paused = !paused;
+      document.getElementById("pauseBtn").textContent = paused ? "▶再開" : "⏸一時停止";
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      stopAlarm();
+
+      const min = parseInt(document.getElementById("minutes").value, 10) || 0;
+      const sec = parseInt(document.getElementById("seconds").value, 10) || 0;
+      duration = remaining = min * 60 + sec;
+      paused = false;
+
+      updateDisplay();
+      document.getElementById("pauseBtn").textContent = "⏸一時停止";
+      flashOverlay.classList.remove("active");
+    }
+
+    function stopAlarm() {
+      if (alarmPlaying) {
+        audio.pause();
+        audio.currentTime = 0;
+        alarmPlaying = false;
+      }
+    }
+
+    function changeTheme(color) {
+      const root = document.documentElement;
+      let themeColor, bgImage;
+
+      switch (color) {
+        case 'red':
+          themeColor = '#ff4c4c';
+          bgImage = 'images/red.jpg';
+          break;
+        case 'blue':
+          themeColor = '#4c9fff';
+          bgImage = 'images/blue.jpg';
+          break;
+        case 'gold':
+        default:
+          themeColor = '#ffd700';
+          bgImage = 'images/gold.jpg';
+          break;
+      }
+
+      root.style.setProperty('--theme-color', themeColor);
+      document.body.style.backgroundImage = `url('${bgImage}')`;
+    }
+  </script>
+
+</body>
+</html>
